@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 const courseOptions = [
@@ -18,13 +18,47 @@ export default function EnrollmentForm() {
     course: "", education: "", batch: "", message: "",
   });
 
+  useEffect(() => {
+    try {
+      const preferredCourse = window.localStorage.getItem("preferredCourse");
+      if (preferredCourse) {
+        setForm((prev) => ({ ...prev, course: preferredCourse }));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    let loggedIn = false;
+    try {
+      loggedIn = window.localStorage.getItem("userLoggedIn") === "true";
+    } catch {
+      loggedIn = false;
+    }
+
+    if (!loggedIn) {
+      toast.error("Please login before submitting the enrollment form.");
+      try {
+        window.dispatchEvent(new CustomEvent("open-login-dialog"));
+      } catch {
+        // ignore dispatch errors
+      }
+      return;
+    }
+
     if (!form.name || !form.email || !form.phone || !form.course) {
       toast.error("Please fill all required fields");
       return;
     }
     toast.success("Enrollment submitted successfully! We'll contact you soon.");
+    try {
+      window.localStorage.removeItem("preferredCourse");
+    } catch {
+      // Ignore storage errors
+    }
     setForm({ name: "", email: "", phone: "", city: "", course: "", education: "", batch: "", message: "" });
   };
 

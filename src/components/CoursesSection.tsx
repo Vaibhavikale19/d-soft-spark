@@ -13,8 +13,8 @@ import {
 } from "lucide-react";
 
 const courses = [
-  { title: "C Programming", desc: "Master fundamentals of procedural programming with C.", duration: "2 Months", icon: Terminal },
   { title: "C++", desc: "Object-oriented programming, STL, and modern C++ features.", duration: "3 Months", icon: Code2 },
+  { title: "C Programming", desc: "Master fundamentals of procedural programming with C.", duration: "2 Months", icon: Terminal },
   { title: "Java", desc: "Core Java, OOP concepts, collections, and project building.", duration: "3 Months", icon: Coffee },
   { title: "Python", desc: "Python basics to advanced — scripting, automation & data.", duration: "3 Months", icon: Braces },
   { title: "Web Development", desc: "HTML, CSS, JavaScript, React — build modern websites.", duration: "4 Months", icon: Globe },
@@ -25,6 +25,31 @@ const courses = [
 ];
 
 export default function CoursesSection() {
+  const handleEnroll = (course: string) => {
+    try {
+      window.localStorage.setItem("preferredCourse", course);
+    } catch {
+      // Ignore storage errors (e.g., in private mode)
+    }
+
+    let loggedIn = false;
+    try {
+      loggedIn = window.localStorage.getItem("userLoggedIn") === "true";
+    } catch {
+      loggedIn = false;
+    }
+
+    if (loggedIn) {
+      window.location.hash = "enrollment";
+    } else {
+      try {
+        window.dispatchEvent(new CustomEvent("open-login-dialog"));
+      } catch {
+        // ignore dispatch errors
+      }
+    }
+  };
+
   return (
     <section id="courses" className="py-24">
       <div className="container mx-auto px-4">
@@ -66,9 +91,9 @@ export default function CoursesSection() {
                   size="sm"
                   variant="ghost"
                   className="text-primary hover:bg-primary/10 text-xs"
-                  asChild
+                  onClick={() => handleEnroll(c.title)}
                 >
-                  <a href="#enrollment">Enroll →</a>
+                  Enroll →
                 </Button>
               </div>
             </motion.div>
