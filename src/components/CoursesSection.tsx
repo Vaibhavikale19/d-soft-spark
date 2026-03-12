@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabaseClient";
 import {
   Code2,
   Braces,
@@ -32,22 +33,17 @@ export default function CoursesSection() {
       // Ignore storage errors (e.g., in private mode)
     }
 
-    let loggedIn = false;
-    try {
-      loggedIn = window.localStorage.getItem("userLoggedIn") === "true";
-    } catch {
-      loggedIn = false;
-    }
-
-    if (loggedIn) {
-      window.location.hash = "enrollment";
-    } else {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        window.location.hash = "enrollment";
+        return;
+      }
       try {
         window.dispatchEvent(new CustomEvent("open-login-dialog"));
       } catch {
         // ignore dispatch errors
       }
-    }
+    });
   };
 
   return (

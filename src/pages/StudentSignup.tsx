@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabaseClient";
-import { ADMIN_EMAIL, ADMIN_EMAIL_INTERNAL } from "@/lib/auth";
+import { ADMIN_EMAIL_INTERNAL } from "@/lib/auth";
 
-const UserLogin = () => {
+const StudentSignup = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
@@ -38,28 +38,22 @@ const UserLogin = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error("Please enter email and password to login.");
+      toast.error("Please enter email and password to sign up.");
       return;
     }
 
-    const trimmedEmail = email.trim().toLowerCase();
-    if (trimmedEmail === ADMIN_EMAIL.toLowerCase()) {
-      toast.error("Admin detected. Please use the Admin Login page.");
-      navigate("/admin/login");
-      return;
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       toast.error(normalizeError(error.message));
       return;
     }
 
     if (data.session) {
-      toast.success("Logged in successfully.");
+      toast.success("Signup successful. Welcome!");
       navigate("/dashboard");
     } else {
-      toast.info("Login failed. Please check your email for a confirmation link.");
+      toast.info("Signup successful! Please check your email to confirm your account.");
+      navigate("/login");
     }
   };
 
@@ -69,19 +63,18 @@ const UserLogin = () => {
       <main className="flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-md bg-card rounded-2xl shadow-lg p-8 glow-card glow-border">
           <h1 className="font-display text-2xl md:text-3xl font-bold text-center mb-2">
-            User <span className="text-gradient">Login</span>
+            Student <span className="text-gradient">Signup</span>
           </h1>
           <p className="text-sm text-muted-foreground text-center mb-6">
-            Sign in to access your student dashboard and enrollment.
+            Create your account to access the student dashboard.
           </p>
-
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="user-email">Email</Label>
+              <Label htmlFor="signup-email">Email</Label>
               <Input
-                id="user-email"
+                id="signup-email"
                 type="email"
-                placeholder="Email"
+                placeholder="you@example.com"
                 autoComplete="email"
                 autoFocus
                 value={email}
@@ -89,50 +82,24 @@ const UserLogin = () => {
               />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="user-password">Password</Label>
-                <button 
-                  type="button" 
-                  onClick={async () => {
-                    if (!email) {
-                      toast.error("Please enter your email first.");
-                      return;
-                    }
-                    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                      redirectTo: `${window.location.origin}/dashboard`,
-                    });
-                    if (error) toast.error(error.message);
-                    else toast.success("Reset link sent to your email.");
-                  }}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Forgot password?
-                </button>
-              </div>
+              <Label htmlFor="signup-password">Password</Label>
               <Input
-                id="user-password"
+                id="signup-password"
                 type="password"
                 placeholder="••••••••"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-
             <Button type="submit" className="w-full mt-2">
-              Login
+              Sign Up
             </Button>
           </form>
           <p className="mt-4 text-xs text-muted-foreground text-center">
-            Don't have an account?{" "}
-            <a href="/student-signup" className="underline text-primary font-semibold">
-              Sign Up here
-            </a>
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground text-center">
-            Admin?{" "}
-            <a href="/admin/login" className="underline text-primary">
-              Go to admin login
+            Already have an account?{" "}
+            <a href="/login" className="underline text-primary">
+              Go to login
             </a>
           </p>
         </div>
@@ -142,4 +109,4 @@ const UserLogin = () => {
   );
 };
 
-export default UserLogin;
+export default StudentSignup;

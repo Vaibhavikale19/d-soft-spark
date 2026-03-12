@@ -3,42 +3,59 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
+import { ADMIN_EMAIL } from "@/lib/auth";
 
 const AdminLogin = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const session = data.session;
+      const currentEmail = session?.user?.email?.toLowerCase() || "";
+      if (session && currentEmail === ADMIN_EMAIL.toLowerCase()) {
+        navigate("/admin-dashboard", { replace: true });
+      } else if (session) {
+        navigate("/dashboard", { replace: true });
+      }
+    });
+  }, [navigate]);
+
+  const normalizeError = (message?: string) => {
+    const m = (message || "").toLowerCase();
+    if (m.includes("invalid login credentials")) return "Invalid login credentials";
+    if (m.includes("email not confirmed")) return "Email not confirmed";
+    if (m.includes("password")) return "Wrong password";
+    return message || "Authentication error";
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!username || !password) {
-      toast.error("Please enter admin username and password.");
+      toast.error("Please enter admin email and password.");
       return;
     }
 
-    // Simple front-end check placeholder; replace with real auth if available
-    const isValidAdmin = username.toLowerCase() === "admin";
-
-    if (!isValidAdmin) {
-      toast.error("Invalid admin credentials.");
+    const email = username.trim().toLowerCase();
+    if (email !== ADMIN_EMAIL.toLowerCase()) {
+      toast.error("Access denied. This page is for admin login only.");
       return;
     }
 
-    try {
-      window.localStorage.setItem("adminLoggedIn", "true");
-    } catch {
-      // ignore storage errors
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      toast.error(normalizeError(error.message));
+      return;
     }
 
-    toast.success("Logged in as admin. You can now manage gallery images.");
-    navigate("/");
-    setTimeout(() => {
-      window.location.hash = "gallery";
-    }, 0);
+    toast.success("Logged in as Admin.");
+    navigate("/admin-dashboard");
   };
 
   return (
@@ -55,12 +72,13 @@ const AdminLogin = () => {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label htmlFor="admin-username">Username</Label>
+              <Label htmlFor="admin-username">Email</Label>
               <Input
                 id="admin-username"
                 type="text"
-                placeholder="admin"
+                placeholder="Email"
                 autoComplete="username"
+                autoFocus
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
               />
@@ -89,4 +107,3 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
-

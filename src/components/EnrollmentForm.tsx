@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 const courseOptions = [
   "C Programming", "C++", "Java", "Python", "Web Development",
@@ -17,8 +18,34 @@ export default function EnrollmentForm() {
     name: "", email: "", phone: "", city: "",
     course: "", education: "", batch: "", message: "",
   });
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
+    // Check session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+      if (session?.user) {
+        setForm(prev => ({
+          ...prev,
+          email: session.user.email || prev.email,
+          name: session.user.user_metadata?.full_name || prev.name
+        }));
+        
+        // Also try to get name from profiles
+        supabase.from("profiles").select("name").eq("id", session.user.id).maybeSingle().then(({ data }) => {
+          if (data?.name) {
+            setForm(prev => ({ ...prev, name: data.name }));
+          }
+        });
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    // 2. Pre-fill from localStorage (Course selection from UI)
     try {
       const preferredCourse = window.localStorage.getItem("preferredCourse");
       if (preferredCourse) {
@@ -27,39 +54,65 @@ export default function EnrollmentForm() {
     } catch {
       // Ignore storage errors
     }
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    let loggedIn = false;
-    try {
-      loggedIn = window.localStorage.getItem("userLoggedIn") === "true";
-    } catch {
-      loggedIn = false;
-    }
-
-    if (!loggedIn) {
-      toast.error("Please login before submitting the enrollment form.");
-      try {
-        window.dispatchEvent(new CustomEvent("open-login-dialog"));
-      } catch {
-        // ignore dispatch errors
-      }
-      return;
-    }
-
     if (!form.name || !form.email || !form.phone || !form.course) {
       toast.error("Please fill all required fields");
       return;
     }
-    toast.success("Enrollment submitted successfully! We'll contact you soon.");
-    try {
-      window.localStorage.removeItem("preferredCourse");
-    } catch {
-      // Ignore storage errors
-    }
-    setForm({ name: "", email: "", phone: "", city: "", course: "", education: "", batch: "", message: "" });
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) {
+        toast.error("Please login first to submit the enrollment form.");
+        try {
+          window.dispatchEvent(new CustomEvent("open-login-dialog"));
+        } catch {
+          // ignore dispatch errors
+        }
+        return;
+      }
+
+      const user = session.user;
+      const payload = {
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        course: form.course,
+        message: form.message,
+        user_id: user.id,
+      };
+
+      const { error: insertError } = await supabase.from("enrollments").insert([payload]);
+
+      if (insertError) {
+        toast.error(insertError.message || "Failed to submit enrollment.");
+        return;
+      }
+
+      // Also ensure student profile exists with "student" role and is initially not approved
+      await supabase.from("profiles").upsert([
+        { 
+          id: user.id, 
+          email: user.email, 
+          role: "student", 
+          name: form.name,
+          is_approved: false 
+        }
+      ], { onConflict: 'id' });
+
+      toast.success("Enrollment submitted successfully! Check your dashboard to see your status.");
+      try {
+        window.localStorage.removeItem("preferredCourse");
+      } catch {
+        // Ignore storage errors
+      }
+      setForm({ name: "", email: "", phone: "", city: "", course: "", education: "", batch: "", message: "" });
+    });
   };
 
   const update = (field: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -80,6 +133,11 @@ export default function EnrollmentForm() {
           <p className="mt-4 text-muted-foreground">
             Fill the form below to register for a course.
           </p>
+          {!isLoggedIn && (
+            <p className="mt-2 text-xs text-primary font-semibold">
+              Tip: Login or <a href="/student-signup" className="underline hover:text-primary/80">Sign Up</a> first to save time!
+            </p>
+          )}
         </motion.div>
 
         <motion.form

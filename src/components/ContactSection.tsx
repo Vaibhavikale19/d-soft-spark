@@ -5,16 +5,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { MapPin, Phone, Mail } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function ContactSection() {
   const [form, setForm] = useState({ name: "", email: "", phone: "", course: "", message: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.phone) {
       toast.error("Please fill required fields");
       return;
     }
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const payload = {
+      name: form.name,
+      email: form.email,
+      phone: form.phone,
+      message: form.message,
+      course_interest: form.course,
+      user_id: user?.id || null,
+    };
+
+    const { error } = await supabase.from("inquiries").insert([payload]);
+    if (error) {
+      toast.error(error.message || "Failed to submit inquiry.");
+      return;
+    }
+
     toast.success("Inquiry submitted! We'll contact you soon.");
     setForm({ name: "", email: "", phone: "", course: "", message: "" });
   };
